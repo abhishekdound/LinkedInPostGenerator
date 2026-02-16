@@ -5,12 +5,27 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.exceptions import OutputParserException
 
 
+def clean_text(text: str) -> str:
+    return text.encode("utf-8", "ignore").decode("utf-8")
+
+def deep_clean(obj):
+    if isinstance(obj, str):
+        return obj.encode("utf-8", "ignore").decode("utf-8")
+    elif isinstance(obj, list):
+        return [deep_clean(i) for i in obj]
+    elif isinstance(obj, dict):
+        return {deep_clean(k): deep_clean(v) for k, v in obj.items()}
+    else:
+        return obj
+
+
 def process_posts(raw_file_path, processed_file_path=None):
     with open(raw_file_path, encoding='utf-8') as file:
         posts = json.load(file)
         enriched_posts = []
         for post in posts:
-            metadata = extract_metadata(post['text'])
+            cleaned_text = clean_text(post['text'])
+            metadata = extract_metadata(cleaned_text)
             post_with_metadata = post | metadata
             enriched_posts.append(post_with_metadata)
 
@@ -21,7 +36,8 @@ def process_posts(raw_file_path, processed_file_path=None):
         post['tags'] = list(new_tags)
 
     with open(processed_file_path, encoding='utf-8', mode="w") as outfile:
-        json.dump(enriched_posts, outfile, indent=4)
+        cleaned_output = deep_clean(enriched_posts)
+        json.dump(cleaned_output, outfile, indent=4, ensure_ascii=False)
 
 
 def extract_metadata(post):
